@@ -1,0 +1,20 @@
+# Core data processing
+pandas>=2.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# LangChain ecosystem
+langchain-openai>=0.1.0
+langchain-experimental>=0.0.50
+langchain-core>=0.2.0
+
+# LangGraph for workflow orchestration
+langgraph>=0.1.0
+
+# Optional: Additional useful packages for data analysis
+matplotlib>=3.7.0  # For plotting if needed
+seaborn>=0.12.0    # For statistical visualizations
+numpy>=1.24.0      # Usually comes with pandas but good to be explicit
+tabulate
+streamlit>=1.0.0  # For building interactive web apps
