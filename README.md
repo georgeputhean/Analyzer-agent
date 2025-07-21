@@ -33,7 +33,7 @@ An intelligent data analysis chatbot built with Streamlit, LangChain, and Azure 
 
 ### Prerequisites
 - Python 3.8+
-- Azure OpenAI account with GPT-4 deployment
+-  OpenAI account with GPT-4 deployment
 - (Optional) LangSmith account for tracing
 
 ### 1. Clone the Repository
@@ -54,10 +54,9 @@ pip install numpy pathlib
 Create a `.env` file in the project root:
 
 ```env
-# Azure OpenAI Configuration (Required)
-AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
-AZURE_OPENAI_API_KEY=your_azure_openai_api_key
-AZURE_OPENAI_DEPLOYMENT_NAME=your_gpt4_deployment_name
+#  OpenAI Configuration (Required)
+OPENAI_API_KEY=your__openai_api_key
+
 
 # LangSmith Tracing Configuration (Optional)
 LANGSMITH_TRACING=true
@@ -127,7 +126,7 @@ User Question → Data Agent → Router → [Chart Path OR Insight Path] → Res
 ### Key Components
 
 - **StateGraph (LangGraph)**: Orchestrates the multi-agent workflow
-- **Azure OpenAI**: Powers the intelligent agents with GPT-4
+- ** OpenAI**: Powers the intelligent agents with GPT-4
 - **Pandas DataFrame Agent**: Enables natural language data analysis
 - **Dynamic Code Generation**: Creates custom visualization code
 - **Safe Code Execution**: Sandboxed environment for running generated code
@@ -194,10 +193,10 @@ Extend the `load_data` method to support:
 
 ### Common Issues
 
-#### "❌ Azure OpenAI setup failed"
-- **Check credentials**: Verify your Azure OpenAI endpoint, API key, and deployment name
+#### "❌  OpenAI setup failed"
+- **Check credentials**: Verify your  OpenAI endpoint, API key, and deployment name
 - **Verify deployment**: Ensure your GPT-4 model is deployed and accessible
-- **Test connection**: Use Azure Portal to test your OpenAI resource
+- **Test connection**: Use  Portal to test your OpenAI resource
 
 #### "❌ Chart execution failed"
 - **Data compatibility**: Ensure your dataset has the required columns
@@ -266,7 +265,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Streamlit**: For the amazing web app framework
 - **LangChain**: For the powerful AI agent capabilities
-- **Azure OpenAI**: For providing the GPT-4 model
+- ** OpenAI**: For providing the GPT-4 model
 - **LangSmith**: For excellent tracing and monitoring
 - **Titanic Dataset**: Classic machine learning dataset from Kaggle
 
@@ -277,7 +276,7 @@ For questions, issues, or contributions:
 1. **GitHub Issues**: Open an issue for bugs or feature requests
 2. **Documentation**: Check this README and inline code comments
 3. **LangSmith Support**: Visit [smith.langchain.com](https://smith.langchain.com) for tracing issues
-4. **Azure Support**: Check Azure documentation for OpenAI service issues
+4. ** Support**: Check  documentation for OpenAI service issues
 
 ## 🔮 Future Roadmap
 
@@ -292,4 +291,4 @@ For questions, issues, or contributions:
 
 ---
 
-*Built with ❤️ using Streamlit, LangChain, and Azure OpenAI*
+*Built with ❤️ using Streamlit, LangChain, and  OpenAI*
