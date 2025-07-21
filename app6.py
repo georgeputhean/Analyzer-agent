@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from dotenv import load_dotenv
 from typing import TypedDict, Annotated, List, Literal
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from langchain_core.messages import BaseMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
@@ -61,17 +61,15 @@ class EnhancedTitanicSystem:
             self.app = self._build()
     
     def _setup_llm(self):
-        """Setup Azure OpenAI with validation and LangSmith tracing"""
+        """Setup OpenAI with validation and LangSmith tracing"""
         required_vars = [
-            "AZURE_OPENAI_API_KEY",
-            "AZURE_OPENAI_ENDPOINT", 
-            "AZURE_OPENAI_DEPLOYMENT_NAME"
+            "OPENAI_API_KEY"
         ]
         
         missing_vars = [var for var in required_vars if not os.getenv(var)]
         if missing_vars:
             st.error(f"❌ Missing environment variables: {', '.join(missing_vars)}")
-            st.info("Please set these in your .env file")
+            st.info("Please set OPENAI_API_KEY in your .env file")
             return
         
         # Check LangSmith configuration
@@ -79,24 +77,22 @@ class EnhancedTitanicSystem:
         project_name = os.getenv("LANGSMITH_PROJECT", "Titanic-AI-Analyst")
         
         try:
-            self.llm = AzureChatOpenAI(
-                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-                deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-                api_version="2024-12-01-preview",
+            self.llm = ChatOpenAI(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                model=os.getenv("OPENAI_MODEL", "gpt-4"),
                 temperature=0.1
             )
             
             # Test the connection
             test_response = self.llm.invoke("Hello")
-            st.success("✅ Azure OpenAI connection successful")
+            st.success("✅ OpenAI connection successful")
             st.info(f"🔍 LangSmith tracing: {langsmith_status} | Project: {project_name}")
             
         except Exception as e:
-            st.error(f"❌ Azure OpenAI setup failed: {str(e)}")
-            if "DeploymentNotFound" in str(e):
-                st.warning(f"🔍 Check your deployment name: '{os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')}'")
-                st.info("Verify it exists in Azure Portal → Azure OpenAI → Model deployments")
+            st.error(f"❌ OpenAI setup failed: {str(e)}")
+            if "authentication" in str(e).lower():
+                st.warning("🔑 Check your OpenAI API key")
+                st.info("Verify your API key is valid and has sufficient credits")
             self.llm = None
     
     def _build(self):
@@ -139,7 +135,7 @@ class EnhancedTitanicSystem:
             return {"analysis": "❌ No data loaded. Please upload data first."}
         
         if not self.llm:
-            return {"analysis": "❌ Azure OpenAI not configured properly"}
+            return {"analysis": "❌ OpenAI not configured properly"}
         
         try:
             agent = create_pandas_dataframe_agent(
@@ -187,7 +183,7 @@ class EnhancedTitanicSystem:
     def _insights(self, state: State) -> State:
         """Insights agent with error handling"""
         if not self.llm:
-            response = "❌ Azure OpenAI not configured properly"
+            response = "❌ OpenAI not configured properly"
             return {"response": response, "messages": [AIMessage(content=response)]}
         
         if "❌" in state["analysis"]:
@@ -213,7 +209,7 @@ class EnhancedTitanicSystem:
     def _generate_chart_code(self, state: State) -> State:
         """Generate chart code dynamically based on question and data"""
         if not self.llm:
-            return {"chart_code": "# Error: Azure OpenAI not configured"}
+            return {"chart_code": "# Error: OpenAI not configured"}
         
         try:
             # Get data info
@@ -410,7 +406,7 @@ class EnhancedTitanicSystem:
     def ask(self, question: str) -> dict:
         """Ask question with validation and tracing"""
         if not self.app:
-            return {"error": "❌ System not initialized properly. Check Azure OpenAI configuration."}
+            return {"error": "❌ System not initialized properly. Check OpenAI configuration."}
         
         if self.df is None:
             return {"error": "❌ No data loaded. Please upload data first."}
@@ -605,8 +601,28 @@ def main():
     
     # Check system status
     if not st.session_state.system or not st.session_state.system.get_status()["llm_ready"]:
-        st.error("❌ AI system not properly initialized. Please check your Azure OpenAI configuration.")
-        st.info("Make sure you have set the required environment variables in your .env file")
+        st.error("❌ AI system not properly initialized. Please check your OpenAI configuration.")
+        st.info("Make sure you have set the OPENAI_API_KEY environment variable in your .env file")
+        
+        # Add setup instructions
+        with st.expander("📖 OpenAI Setup Instructions"):
+            st.markdown("""
+            **To configure OpenAI:**
+            
+            1. Get your API key from [platform.openai.com](https://platform.openai.com/api-keys)
+            2. Add to your .env file:
+               ```
+               OPENAI_API_KEY=your_api_key_here
+               OPENAI_MODEL=gpt-4  # Optional, defaults to gpt-4
+               ```
+            3. Restart the application
+            
+            **Optional: Enable LangSmith tracing:**
+            ```
+            LANGSMITH_API_KEY=your_langsmith_key
+            LANGSMITH_PROJECT=Titanic-AI-Analyst
+            ```
+            """)
         return
     
     # Display data preview if loaded
