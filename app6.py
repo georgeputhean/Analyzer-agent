@@ -559,7 +559,7 @@ def initialize_session_state():
 def display_sidebar():
     """Display sidebar with system controls"""
     with st.sidebar:
-        st.header("🚢 Titanic AI Analyst")
+        st.header("🚢 Insight\Viz AI Analyst")
         
         # System status
         if st.session_state.system:
