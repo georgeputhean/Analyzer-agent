@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Streamlit Chat Interface for Enhanced Titanic Analysis System
+Streamlit Chat Interface for Enhanced  Analysis System
 """
 
 import streamlit as st
@@ -478,7 +478,7 @@ class EnhancedTitanicSystem:
                 self.df = pd.read_csv(uploaded_file)
                 st.success(f"✅ Data loaded successfully: {self.df.shape[0]} rows, {self.df.shape[1]} columns")
             else:
-                # Use default Titanic URL if no file provided
+                # Use default  URL if no file provided
                 url = file_path_or_url or "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
                 self.df = pd.read_csv(url)
                 st.success(f"✅ Data loaded successfully: {self.df.shape[0]} rows, {self.df.shape[1]} columns")
@@ -718,7 +718,7 @@ def main():
     
     # Main content area
     st.title("🚢 Insight/Viz AI Chat Analyst")
-    st.markdown("Ask questions about the Titanic dataset and get intelligent analysis with dynamic visualizations!")
+    st.markdown("Ask questions about the  dataset and get intelligent analysis with dynamic visualizations!")
     
     # Check system status
     if not st.session_state.system or not st.session_state.system.get_status()["llm_ready"]:
