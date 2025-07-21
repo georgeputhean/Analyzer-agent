@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Streamlit Chat Interface for Enhanced  Analysis System
+Streamlit Chat Interface for Enhanced Analysis System - FIXED VERSION
 """
 
 import streamlit as st
@@ -233,16 +233,16 @@ class EnhancedTitanicSystem:
             
             Requirements:
             1. Use the dataframe variable 'df' (already loaded)
-            2. For charts: Create a figure with plt.figure(figsize=(12, 8))
-            3. For tables: Create a summary table or filtered dataframe
+            2. For charts: DO NOT include plt.figure() or plt.style.use() - these are handled automatically
+            3. For tables: Create a summary table or filtered dataframe and assign it to 'table_data'
             4. Use appropriate chart/table type based on the question
-            5. Add proper title, labels, and formatting
-            6. Use seaborn style for charts: plt.style.use('seaborn-v0_8')
-            7. Handle missing values appropriately with .dropna() when needed
-            8. Use clear colors and readable fonts
-            9. For charts: Add plt.tight_layout() at the end
-            10. Do NOT include plt.show() or plt.savefig()
-            11. **IMPORTANT: Do NOT include any import statements - all modules (plt, sns, pd, np) are already imported and available**
+            5. Add proper title, labels, and formatting with plt.title(), plt.xlabel(), plt.ylabel()
+            6. Handle missing values appropriately with .dropna() when needed
+            7. Use clear colors and readable fonts
+            8. For charts: DO NOT include plt.tight_layout(), plt.show() or plt.savefig() - these are handled automatically
+            9. **IMPORTANT: Do NOT include any import statements - all modules (plt, sns, pd, np) are already imported and available**
+            10. **CRITICAL: For table requests, you MUST assign the result to a variable named 'table_data'**
+            11. **GENERATE COMPLETE CODE** - not just comments or partial code
             
             Available chart/table types and when to use them:
             - Histogram: for distributions of continuous variables
@@ -255,26 +255,40 @@ class EnhancedTitanicSystem:
             - Table: for displaying data summaries, filtered data, crosstabs, or statistical summaries
             
             For tables, you can:
-            - Show top/bottom N records: df.nlargest(N, 'column')[['col1', 'col2']] or df.nsmallest(N, 'column')
-            - Filter and display specific columns: df[['Name', 'Age', 'Fare']].head(10)
-            - Filter by conditions: df[df['Age'] > 30][['Name', 'Age']]
-            - Sort data: df.sort_values('column', ascending=False)[['col1', 'col2']].head(N)
-            - Create summary statistics: df.describe(), df.groupby().agg(), pd.crosstab()
-            - Show value counts: df['column'].value_counts()
-            - Create pivot tables: df.pivot_table()
+            - Show top/bottom N records: table_data = df.nlargest(N, 'column')[['col1', 'col2']] or table_data = df.nsmallest(N, 'column')
+            - Filter and display specific columns: table_data = df[['Name', 'Age', 'Fare']].head(10)
+            - Filter by conditions: table_data = df[df['Age'] > 30][['Name', 'Age']]
+            - Sort data: table_data = df.sort_values('column', ascending=False)[['col1', 'col2']].head(N)
+            - Create summary statistics: table_data = df.describe(), table_data = df.groupby().agg(), table_data = pd.crosstab()
+            - Show value counts: table_data = df['column'].value_counts().to_frame()
+            - Create pivot tables: table_data = df.pivot_table()
             
             **IMPORTANT for table requests:**
             - If user asks for "top N" or "highest/lowest", use df.nlargest() or df.nsmallest()
             - If user specifies columns (like "name and fare"), select only those columns: [['Name', 'Fare']]
             - If user asks for specific passengers/records, filter and display the relevant rows
             - Always assign the result to a variable called 'table_data'
+            - Make sure table_data is a pandas DataFrame, not a Series
             
             Examples:
             - "top 10 passengers with highest fare, name and fare" → table_data = df.nlargest(10, 'Fare')[['Name', 'Fare']]
             - "show me passengers over 60 years old" → table_data = df[df['Age'] > 60][['Name', 'Age', 'Pclass']]
             - "list all first class passengers with names" → table_data = df[df['Pclass'] == 1][['Name', 'Age', 'Fare']]
+            - "create age distribution histogram" → 
+              plt.hist(df['Age'].dropna(), bins=20, edgecolor='black', alpha=0.7)
+              plt.title('Age Distribution of Passengers')
+              plt.xlabel('Age')
+              plt.ylabel('Frequency')
+            - "show survival by passenger class" →
+              survival_by_class = df.groupby('Pclass')['Survived'].mean()
+              plt.bar(survival_by_class.index, survival_by_class.values)
+              plt.title('Survival Rate by Passenger Class')
+              plt.xlabel('Passenger Class')
+              plt.ylabel('Survival Rate')
             
             If creating a table, assign the result to a variable called 'table_data' instead of creating a plot.
+            
+            **IMPORTANT**: Generate complete, executable Python code. Do not generate only comments or partial code.
             
             Generate ONLY the Python code without any import statements, no explanations:
             """
@@ -283,10 +297,17 @@ class EnhancedTitanicSystem:
             # Extract code from response (remove markdown if present)
             code = self._extract_code(response)
             
+            # Validate that we have actual code, not just comments
+            code_lines = [line.strip() for line in code.split('\n') if line.strip()]
+            non_comment_lines = [line for line in code_lines if not line.startswith('#')]
+            
+            if len(non_comment_lines) == 0:
+                # If only comments were generated, return an error
+                return {"chart_code": "# Error: No executable code generated. Please try rephrasing your question."}
+            
             # Remove any import statements from the generated code
-            code_lines = code.split('\n')
             filtered_lines = []
-            for line in code_lines:
+            for line in code.split('\n'):
                 stripped_line = line.strip()
                 if not (stripped_line.startswith('import ') or stripped_line.startswith('from ') or 
                        'import' in stripped_line and ('matplotlib' in stripped_line or 'seaborn' in stripped_line or 
@@ -371,35 +392,65 @@ class EnhancedTitanicSystem:
                     '__builtins__': safe_builtins
                 }
                 
-                # Execute the table code
-                exec(state["chart_code"], safe_globals)
-                
-                # Get the table data
-                table_data = safe_globals.get('table_data', None)
-                
-                if table_data is not None:
-                    response = f"""
-                    📊 **Data Table Generated Successfully!**
+                try:
+                    # Execute the table code
+                    exec(state["chart_code"], safe_globals)
                     
-                    **Question:** {state['query']}
+                    # Get the table data and validate it
+                    table_data = safe_globals.get('table_data', None)
                     
-                    Here's the requested data table:
-                    """
+                    # Validate table_data is a proper DataFrame or Series
+                    if table_data is not None:
+                        if isinstance(table_data, pd.Series):
+                            # Convert Series to DataFrame for display
+                            table_data = table_data.to_frame()
+                        elif not isinstance(table_data, pd.DataFrame):
+                            # If it's not a DataFrame or Series, try to convert it
+                            try:
+                                table_data = pd.DataFrame(table_data)
+                            except:
+                                table_data = None
                     
-                    return {
-                        "response": response,
-                        "chart_path": "",
-                        "chart_code": state["chart_code"],
-                        "table_data": table_data,
-                        "messages": [AIMessage(content=response)]
-                    }
-                else:
-                    response = "❌ Table generation failed - no table_data found"
+                    if table_data is not None and isinstance(table_data, pd.DataFrame) and not table_data.empty:
+                        response = f"""
+                        📊 **Data Table Generated Successfully!**
+                        
+                        **Question:** {state['query']}
+                        
+                        Here's the requested data table:
+                        """
+                        
+                        return {
+                            "response": response,
+                            "chart_path": "",
+                            "chart_code": state["chart_code"],
+                            "table_data": table_data,
+                            "messages": [AIMessage(content=response)]
+                        }
+                    else:
+                        response = "❌ Table generation failed - no valid table data produced"
+                        return {"response": response, "messages": [AIMessage(content=response)]}
+                        
+                except Exception as table_exec_error:
+                    response = f"❌ Table code execution failed: {str(table_exec_error)}"
                     return {"response": response, "messages": [AIMessage(content=response)]}
             
             else:
                 # Handle chart creation (existing logic)
-                plt.style.use('seaborn-v0_8')
+                try:
+                    # Try different seaborn style names based on matplotlib version
+                    if 'seaborn-v0_8' in plt.style.available:
+                        plt.style.use('seaborn-v0_8')
+                    elif 'seaborn' in plt.style.available:
+                        plt.style.use('seaborn')
+                    else:
+                        # Use a default matplotlib style if seaborn styles are not available
+                        plt.style.use('default')
+                        sns.set_palette("husl")  # Use seaborn color palette instead
+                except:
+                    # Fallback to default style
+                    plt.style.use('default')
+                    
                 plt.figure(figsize=(12, 8))
                 
                 # Create safe execution environment with necessary built-ins for basic operations
@@ -433,8 +484,9 @@ class EnhancedTitanicSystem:
                 # Execute the generated code
                 exec(state["chart_code"], safe_globals)
                 
-                # Apply final formatting
-                plt.tight_layout()
+                # Apply final formatting if we have a current figure
+                if plt.get_fignums():  # Check if there are any figures
+                    plt.tight_layout()
                 
                 # Save chart with timestamp for uniqueness
                 timestamp = int(time.time())
@@ -466,7 +518,12 @@ class EnhancedTitanicSystem:
             {state['chart_code']}
             ```
             
-            Please check the code for syntax errors or data compatibility issues.
+            **Debug Info:**
+            - Error Type: {type(e).__name__}
+            - Is Table Request: {'table_data' in state['chart_code']}
+            - Code Length: {len(state['chart_code'])} characters
+            
+            Please try rephrasing your question or check the data for compatibility issues.
             """
             return {"response": error_msg, "messages": [AIMessage(content=error_msg)]}
     
@@ -478,7 +535,7 @@ class EnhancedTitanicSystem:
                 self.df = pd.read_csv(uploaded_file)
                 st.success(f"✅ Data loaded successfully: {self.df.shape[0]} rows, {self.df.shape[1]} columns")
             else:
-                # Use default  URL if no file provided
+                # Use default URL if no file provided
                 url = file_path_or_url or "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
                 self.df = pd.read_csv(url)
                 st.success(f"✅ Data loaded successfully: {self.df.shape[0]} rows, {self.df.shape[1]} columns")
@@ -718,7 +775,7 @@ def main():
     
     # Main content area
     st.title("🚢 Insight/Viz AI Chat Analyst")
-    st.markdown("Ask questions about the  dataset and get intelligent analysis with dynamic visualizations!")
+    st.markdown("Ask questions about the dataset and get intelligent analysis with dynamic visualizations!")
     
     # Check system status
     if not st.session_state.system or not st.session_state.system.get_status()["llm_ready"]:
@@ -777,9 +834,9 @@ def main():
                         with st.expander("🔍 View Generated Code"):
                             st.code(message["chart_code"], language="python")
             
-            # Display table if present
+            # Display table if present - FIXED VERSION
             if message["role"] == "assistant" and "table_data" in message:
-                if message["table_data"] is not None:
+                if message["table_data"] is not None and isinstance(message["table_data"], pd.DataFrame):
                     st.dataframe(message["table_data"], use_container_width=True)
                     
                     # Show generated code if available
@@ -829,9 +886,9 @@ def main():
                             with st.expander("🔍 View Generated Code"):
                                 st.code(result["chart_code"], language="python")
                     
-                    # Display table if generated
+                    # Display table if generated - FIXED VERSION
                     table_displayed = False
-                    if result.get("table_data") is not None:
+                    if result.get("table_data") is not None and isinstance(result.get("table_data"), pd.DataFrame):
                         st.dataframe(result["table_data"], use_container_width=True)
                         table_displayed = True
                         
