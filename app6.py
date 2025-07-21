@@ -27,14 +27,14 @@ if os.getenv("LANGSMITH_API_KEY"):
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
     os.environ["LANGCHAIN_ENDPOINT"] = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
     os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
-    os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "Titanic-AI-Analyst")
+    os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "Agent-Analyzer-bot")
     print(f"🔍 LangSmith tracing enabled for project: {os.environ['LANGCHAIN_PROJECT']}")
 else:
     print("⚠️ LANGSMITH_API_KEY not found - LangSmith tracing disabled")
 
 # Streamlit page config
 st.set_page_config(
-    page_title="🚢 Titanic AI Chat Analyst",
+    page_title="Insight/Viz AI Chat Analyst",
     page_icon="🚢",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -48,6 +48,7 @@ class State(TypedDict):
     chart_path: str
     route_decision: str
     chart_code: str
+    table_data: str
 
 class EnhancedTitanicSystem:
     """Enhanced system with data agent, insights agent, and dynamic chart agent"""
@@ -85,7 +86,7 @@ class EnhancedTitanicSystem:
             
             # Test the connection
             test_response = self.llm.invoke("Hello")
-            st.success("✅ OpenAI connection successful")
+            st.success("✅ OpenAI connection successful, Now load data to start analyzing!")
             st.info(f"🔍 LangSmith tracing: {langsmith_status} | Project: {project_name}")
             
         except Exception as e:
@@ -153,18 +154,24 @@ class EnhancedTitanicSystem:
             return {"analysis": error_msg}
     
     def _route_decision(self, state: State) -> State:
-        """Determine if question asks for chart or insights"""
+        """Determine if question asks for chart/table or insights"""
         if not self.llm:
             return {"route_decision": "insight"}
         
         try:
             prompt = f"""
-            Analyze this question and determine if it's asking for a chart/visualization or insights/analysis:
+            Analyze this question and determine if it's asking for a chart/visualization/table or insights/analysis:
             
             Question: "{state['query']}"
             
-            Chart keywords: chart, plot, graph, visualize, show, display, histogram, scatter, bar chart, line plot, heatmap, boxplot, distribution, correlation
-            Insight keywords: analyze, explain, what, why, how many, rate, percentage, insights, summary, calculate, find
+            Chart/Table keywords: chart, plot, graph, visualize, show, display, histogram, scatter, bar chart, line plot, heatmap, boxplot, distribution, correlation, table, dataframe, list, rows, columns, summary table, crosstab, top, bottom, highest, lowest, passengers, records, names, show me, display, sort
+            Insight keywords: analyze, explain, what, why, how many, rate, percentage, insights, summary, calculate, find, tell me about
+            
+            Special cases for tables:
+            - "show me top/bottom N..." → chart
+            - "list passengers who..." → chart  
+            - "display records where..." → chart
+            - "passengers with highest/lowest..." → chart
             
             Respond with only one word: either "chart" or "insight"
             """
@@ -216,7 +223,7 @@ class EnhancedTitanicSystem:
             data_info = self._get_data_info()
             
             prompt = f"""
-            Generate Python code to create a chart/visualization for this question using matplotlib and seaborn.
+            Generate Python code to create a chart/visualization/table for this question using matplotlib, seaborn, and pandas.
             
             Question: "{state['query']}"
             Data Analysis: {state['analysis']}
@@ -226,17 +233,18 @@ class EnhancedTitanicSystem:
             
             Requirements:
             1. Use the dataframe variable 'df' (already loaded)
-            2. Create a figure with plt.figure(figsize=(12, 8))
-            3. Use appropriate chart type based on the question
-            4. Add proper title, labels, and formatting
-            5. Use seaborn style: plt.style.use('seaborn-v0_8')
-            6. Handle missing values appropriately with .dropna() when needed
-            7. Use clear colors and readable fonts
-            8. Add plt.tight_layout() at the end
-            9. Do NOT include plt.show() or plt.savefig()
-            10. **IMPORTANT: Do NOT include any import statements - all modules (plt, sns, pd, np) are already imported and available**
+            2. For charts: Create a figure with plt.figure(figsize=(12, 8))
+            3. For tables: Create a summary table or filtered dataframe
+            4. Use appropriate chart/table type based on the question
+            5. Add proper title, labels, and formatting
+            6. Use seaborn style for charts: plt.style.use('seaborn-v0_8')
+            7. Handle missing values appropriately with .dropna() when needed
+            8. Use clear colors and readable fonts
+            9. For charts: Add plt.tight_layout() at the end
+            10. Do NOT include plt.show() or plt.savefig()
+            11. **IMPORTANT: Do NOT include any import statements - all modules (plt, sns, pd, np) are already imported and available**
             
-            Available chart types and when to use them:
+            Available chart/table types and when to use them:
             - Histogram: for distributions of continuous variables
             - Bar chart: for categorical data or counts
             - Scatter plot: for relationships between two continuous variables
@@ -244,6 +252,29 @@ class EnhancedTitanicSystem:
             - Heatmap: for correlation matrices
             - Line plot: for trends over time/ordered data
             - Pie chart: for proportions (use sparingly)
+            - Table: for displaying data summaries, filtered data, crosstabs, or statistical summaries
+            
+            For tables, you can:
+            - Show top/bottom N records: df.nlargest(N, 'column')[['col1', 'col2']] or df.nsmallest(N, 'column')
+            - Filter and display specific columns: df[['Name', 'Age', 'Fare']].head(10)
+            - Filter by conditions: df[df['Age'] > 30][['Name', 'Age']]
+            - Sort data: df.sort_values('column', ascending=False)[['col1', 'col2']].head(N)
+            - Create summary statistics: df.describe(), df.groupby().agg(), pd.crosstab()
+            - Show value counts: df['column'].value_counts()
+            - Create pivot tables: df.pivot_table()
+            
+            **IMPORTANT for table requests:**
+            - If user asks for "top N" or "highest/lowest", use df.nlargest() or df.nsmallest()
+            - If user specifies columns (like "name and fare"), select only those columns: [['Name', 'Fare']]
+            - If user asks for specific passengers/records, filter and display the relevant rows
+            - Always assign the result to a variable called 'table_data'
+            
+            Examples:
+            - "top 10 passengers with highest fare, name and fare" → table_data = df.nlargest(10, 'Fare')[['Name', 'Fare']]
+            - "show me passengers over 60 years old" → table_data = df[df['Age'] > 60][['Name', 'Age', 'Pclass']]
+            - "list all first class passengers with names" → table_data = df[df['Pclass'] == 1][['Name', 'Age', 'Fare']]
+            
+            If creating a table, assign the result to a variable called 'table_data' instead of creating a plot.
             
             Generate ONLY the Python code without any import statements, no explanations:
             """
@@ -300,78 +331,135 @@ class EnhancedTitanicSystem:
         return code
     
     def _create_chart(self, state: State) -> State:
-        """Execute the generated chart code"""
+        """Execute the generated chart code or create table"""
         if self.df is None:
-            response = "❌ No data loaded for chart creation"
+            response = "❌ No data loaded for chart/table creation"
             return {"response": response, "messages": [AIMessage(content=response)]}
         
         if "Error" in state["chart_code"]:
-            response = f"❌ Chart code generation failed: {state['chart_code']}"
+            response = f"❌ Chart/table code generation failed: {state['chart_code']}"
             return {"response": response, "messages": [AIMessage(content=response)]}
         
         try:
-            # Set up the plotting environment
-            plt.style.use('seaborn-v0_8')
-            plt.figure(figsize=(12, 8))
+            # Check if this is a table request
+            is_table = 'table_data' in state["chart_code"]
             
-            # Create safe execution environment with necessary built-ins for basic operations
-            safe_builtins = {
-                'len': len,
-                'range': range,
-                'enumerate': enumerate,
-                'zip': zip,
-                'list': list,
-                'dict': dict,
-                'str': str,
-                'int': int,
-                'float': float,
-                'bool': bool,
-                'max': max,
-                'min': min,
-                'sum': sum,
-                'sorted': sorted,
-                'round': round
-            }
+            if is_table:
+                # Handle table creation
+                safe_builtins = {
+                    'len': len,
+                    'range': range,
+                    'enumerate': enumerate,
+                    'zip': zip,
+                    'list': list,
+                    'dict': dict,
+                    'str': str,
+                    'int': int,
+                    'float': float,
+                    'bool': bool,
+                    'max': max,
+                    'min': min,
+                    'sum': sum,
+                    'sorted': sorted,
+                    'round': round
+                }
+                
+                safe_globals = {
+                    'df': self.df,
+                    'pd': pd,
+                    'np': np,
+                    '__builtins__': safe_builtins
+                }
+                
+                # Execute the table code
+                exec(state["chart_code"], safe_globals)
+                
+                # Get the table data
+                table_data = safe_globals.get('table_data', None)
+                
+                if table_data is not None:
+                    response = f"""
+                    📊 **Data Table Generated Successfully!**
+                    
+                    **Question:** {state['query']}
+                    
+                    Here's the requested data table:
+                    """
+                    
+                    return {
+                        "response": response,
+                        "chart_path": "",
+                        "chart_code": state["chart_code"],
+                        "table_data": table_data,
+                        "messages": [AIMessage(content=response)]
+                    }
+                else:
+                    response = "❌ Table generation failed - no table_data found"
+                    return {"response": response, "messages": [AIMessage(content=response)]}
             
-            safe_globals = {
-                'df': self.df,
-                'plt': plt,
-                'sns': sns,
-                'pd': pd,
-                'np': np,
-                '__builtins__': safe_builtins  # Allow basic operations but not imports
-            }
-            
-            # Execute the generated code
-            exec(state["chart_code"], safe_globals)
-            
-            # Apply final formatting
-            plt.tight_layout()
-            
-            # Save chart with timestamp for uniqueness
-            timestamp = int(time.time())
-            chart_path = f"chart_{timestamp}_{hash(state['query']) % 10000}.png"
-            plt.savefig(chart_path, dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            response = f"""
-            📊 **Dynamic Chart Generated Successfully!**
-            
-            **Question:** {state['query']}
-            
-            The visualization was created dynamically based on your question and the dataset characteristics.
-            """
-            
-            return {
-                "response": response,
-                "chart_path": chart_path,
-                "chart_code": state["chart_code"],
-                "messages": [AIMessage(content=response)]
-            }
+            else:
+                # Handle chart creation (existing logic)
+                plt.style.use('seaborn-v0_8')
+                plt.figure(figsize=(12, 8))
+                
+                # Create safe execution environment with necessary built-ins for basic operations
+                safe_builtins = {
+                    'len': len,
+                    'range': range,
+                    'enumerate': enumerate,
+                    'zip': zip,
+                    'list': list,
+                    'dict': dict,
+                    'str': str,
+                    'int': int,
+                    'float': float,
+                    'bool': bool,
+                    'max': max,
+                    'min': min,
+                    'sum': sum,
+                    'sorted': sorted,
+                    'round': round
+                }
+                
+                safe_globals = {
+                    'df': self.df,
+                    'plt': plt,
+                    'sns': sns,
+                    'pd': pd,
+                    'np': np,
+                    '__builtins__': safe_builtins
+                }
+                
+                # Execute the generated code
+                exec(state["chart_code"], safe_globals)
+                
+                # Apply final formatting
+                plt.tight_layout()
+                
+                # Save chart with timestamp for uniqueness
+                timestamp = int(time.time())
+                chart_path = f"chart_{timestamp}_{hash(state['query']) % 10000}.png"
+                plt.savefig(chart_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                
+                response = f"""
+                📊 **Dynamic Chart Generated Successfully!**
+                
+                **Question:** {state['query']}
+                
+                The visualization was created dynamically based on your question and the dataset characteristics.
+                """
+                
+                return {
+                    "response": response,
+                    "chart_path": chart_path,
+                    "chart_code": state["chart_code"],
+                    "messages": [AIMessage(content=response)]
+                }
             
         except Exception as e:
             error_msg = f"""
-            ❌ **Chart execution failed:** {str(e)}
+            ❌ **Chart/table execution failed:** {str(e)}
             
             **Generated Code:**
             ```python
@@ -430,7 +518,8 @@ class EnhancedTitanicSystem:
                     "messages": [],
                     "chart_path": "",
                     "route_decision": "",
-                    "chart_code": ""
+                    "chart_code": "",
+                    "table_data": ""
                 },
                 config={
                     "metadata": run_metadata,
@@ -563,18 +652,50 @@ def display_sidebar():
         
         # Sample questions
         st.subheader("💡 Sample Questions")
-        sample_questions = [
+        
+        # Organize sample questions by type
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**📊 Charts & Visualizations:**")
+            chart_questions = [
+                "Create age distribution histogram",
+                "Plot fare vs age correlation",
+                "Show me a heatmap of correlations",
+                "Create boxplot of fare by class",
+                "Show survival by passenger class"
+            ]
+            
+            for question in chart_questions:
+                if st.button(question, key=f"chart_{question}", use_container_width=True):
+                    st.session_state.messages.append({"role": "user", "content": question})
+                    st.rerun()
+        
+        with col2:
+            st.write("**📋 Tables & Data:**")
+            table_questions = [
+                "Show me top 10 passengers with highest fare",
+                "List passengers over 60 years old",
+                "Top 5 youngest survivors with names",
+                "Show first class passengers with names and fare",
+                "Display passengers from Southampton"
+            ]
+            
+            for question in table_questions:
+                if st.button(question, key=f"table_{question}", use_container_width=True):
+                    st.session_state.messages.append({"role": "user", "content": question})
+                    st.rerun()
+        
+        # Additional analysis questions
+        st.write("**🔍 Analysis & Insights:**")
+        insight_questions = [
             "What is the survival rate?",
-            "Show survival by passenger class",
-            "Create age distribution histogram",
-            "Plot fare vs age correlation",
-            "Show me a heatmap of correlations",
             "Analyze survival by gender",
-            "Create boxplot of fare by class"
+            "What factors affected survival most?"
         ]
         
-        for question in sample_questions:
-            if st.button(question, key=f"sample_{question}", use_container_width=True):
+        for question in insight_questions:
+            if st.button(question, key=f"insight_{question}", use_container_width=True):
                 st.session_state.messages.append({"role": "user", "content": question})
                 st.rerun()
         
@@ -596,7 +717,7 @@ def main():
     display_sidebar()
     
     # Main content area
-    st.title("🚢 Auto Analyzer Visualisation AI Chat Analyst")
+    st.title("🚢 Insight/Viz AI Chat Analyst")
     st.markdown("Ask questions about the Titanic dataset and get intelligent analysis with dynamic visualizations!")
     
     # Check system status
@@ -655,6 +776,16 @@ def main():
                     if "chart_code" in message and message["chart_code"]:
                         with st.expander("🔍 View Generated Code"):
                             st.code(message["chart_code"], language="python")
+            
+            # Display table if present
+            if message["role"] == "assistant" and "table_data" in message:
+                if message["table_data"] is not None:
+                    st.dataframe(message["table_data"], use_container_width=True)
+                    
+                    # Show generated code if available
+                    if "chart_code" in message and message["chart_code"]:
+                        with st.expander("🔍 View Generated Code"):
+                            st.code(message["chart_code"], language="python")
     
     # Chat input
     if prompt := st.chat_input("Ask a question about your data..."):
@@ -698,6 +829,17 @@ def main():
                             with st.expander("🔍 View Generated Code"):
                                 st.code(result["chart_code"], language="python")
                     
+                    # Display table if generated
+                    table_displayed = False
+                    if result.get("table_data") is not None:
+                        st.dataframe(result["table_data"], use_container_width=True)
+                        table_displayed = True
+                        
+                        # Show generated code
+                        if result.get("chart_code"):
+                            with st.expander("🔍 View Generated Code"):
+                                st.code(result["chart_code"], language="python")
+                    
                     # Add assistant message to history
                     assistant_message = {
                         "role": "assistant", 
@@ -706,6 +848,10 @@ def main():
                     
                     if chart_displayed:
                         assistant_message["chart_path"] = result["chart_path"]
+                        assistant_message["chart_code"] = result.get("chart_code", "")
+                    
+                    if table_displayed:
+                        assistant_message["table_data"] = result["table_data"]
                         assistant_message["chart_code"] = result.get("chart_code", "")
                     
                     st.session_state.messages.append(assistant_message)
