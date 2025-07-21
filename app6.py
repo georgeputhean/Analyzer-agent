@@ -596,7 +596,7 @@ def main():
     display_sidebar()
     
     # Main content area
-    st.title("🚢 Titanic AI Chat Analyst")
+    st.title("🚢 Auto Analyzer Visualisation AI Chat Analyst")
     st.markdown("Ask questions about the Titanic dataset and get intelligent analysis with dynamic visualizations!")
     
     # Check system status
